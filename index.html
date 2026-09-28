@@ -104,6 +104,8 @@ let stations = store.get("tk_stations", []);
 let prices = store.get("tk_prices", {});
 let updated = store.get("tk_updated", null);
 let city = "Alle", onlyOpen = true, editing = false, busy = false;
+const tidy = t => String(t || "").toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+stations.forEach(s => { s.place = tidy(s.place); });
 
 function msg(t, err){ $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; }
 function persist(){ store.set("tk_stations", stations); store.set("tk_prices", prices); store.set("tk_updated", updated); }
@@ -122,7 +124,7 @@ async function addArea(lat, lng, rad){
   let added = 0;
   for (const s of j.stations || []){
     if (stations.some(x => x.id === s.id)) continue;
-    stations.push({id: s.id, name: s.brand || s.name, sub: s.name, street: [s.street, s.houseNumber].filter(Boolean).join(" "), place: s.place});
+    stations.push({id: s.id, name: s.brand || s.name, sub: s.name, street: [s.street, s.houseNumber].filter(Boolean).join(" "), place: tidy(s.place)});
     added++;
     prices[s.id] = {status: s.isOpen ? "open" : "closed", e5: s.e5 ?? false};
   }
