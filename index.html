@@ -46,9 +46,15 @@ html,body{margin:0;height:100%;color:var(--ink);
   font:400 17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
   -webkit-text-size-adjust:100%}
 body{
-  background:linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 30%,var(--sky3) 55%,var(--sky4) 78%,var(--sky5) 100%);
-  background-attachment:fixed;
   min-height:100%;
+}
+/* Hintergrund via Pseudo-Element entkoppelt, um iOS Scroll-Bugs zu beheben */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 30%, var(--sky3) 55%, var(--sky4) 78%, var(--sky5) 100%);
 }
 main{width:100%;max-width:var(--dev-w);margin:0 auto;
   padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(env(safe-area-inset-bottom,0px) + 28px);
@@ -58,6 +64,7 @@ h1{font-size:34px;font-weight:800;margin:2px 0 0;letter-spacing:-.023em}
 .sub{color:var(--ink);opacity:.75;font-size:13px;font-weight:500;margin:3px 0 14px}
 
 button{
+  appearance:none;-webkit-appearance:none;outline:none;
   font:inherit;font-weight:600;font-size:15px;color:var(--ink);cursor:pointer;
   border:1px solid var(--card-line);border-radius:999px;padding:10px 16px;
   background:var(--card);box-shadow:var(--shadow);
@@ -177,7 +184,6 @@ let updated = store.get("tk_updated", null);
 let city = "Alle", onlyOpen = true, editing = false, busy = false;
 const tidy = t => String(t || "").toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
 
-// Namen säubern und direkt alte "Blaustein"-Einträge aus dem Speicher kicken
 stations.forEach(s => { s.place = tidy(s.place); });
 stations = stations.filter(s => s.place !== "Blaustein");
 
@@ -198,7 +204,7 @@ async function addArea(lat, lng, rad){
   let added = 0;
   for (const s of j.stations || []){
     const placeName = tidy(s.place);
-    if (placeName === "Blaustein") continue; // Blaustein gänzlich ignorieren
+    if (placeName === "Blaustein") continue;
     if (stations.some(x => x.id === s.id)) continue;
     stations.push({id: s.id, name: s.brand || s.name, sub: s.name, street: [s.street, s.houseNumber].filter(Boolean).join(" "), place: placeName});
     added++;
@@ -249,9 +255,19 @@ function fmt(p){
 
 function render(){
   $("upd").textContent = updated ? "Stand: " + new Date(updated).toLocaleString("de-DE", {weekday: "short", hour: "2-digit", minute: "2-digit"}) + " Uhr · " + stations.length + " Stationen" : "Noch nicht aktualisiert";
+  
+  // Chip-Leiste aktualisieren ohne sie bei jedem Rendern zu zerstören (verhindert das Viereck-Flackern)
   const places = ["Alle", ...[...new Set(stations.map(s => s.place))].sort()];
   if (!places.includes(city)) city = "Alle";
-  $("chips").innerHTML = places.map(p => `<button class="${p === city ? "on" : ""}" data-c="${p}">${p}</button>`).join("");
+  
+  const currentChips = Array.from($("chips").children).map(b => b.dataset.c).join(",");
+  if (currentChips !== places.join(",")) {
+    $("chips").innerHTML = places.map(p => `<button data-c="${p}">${p}</button>`).join("");
+  }
+  for (const b of $("chips").children) {
+    b.classList.toggle("on", b.dataset.c === city);
+  }
+
   $("btnOpen").textContent = "Nur geöffnete: " + (onlyOpen ? "an" : "aus");
   let rows = stations.filter(s => city === "Alle" || s.place === city).map(s => {
     const p = prices[s.id], e5 = p && p.status === "open" && typeof p.e5 === "number" ? p.e5 : null;
